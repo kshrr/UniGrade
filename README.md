@@ -51,11 +51,11 @@ Update the database configuration if necessary.
 
 Example:
 
-$host = "localhost";
-$username = "root";
-$password = "";
-$database = "usim_grades_insecure";
-$port = 3306; (update this to your port number)
+$host = "localhost";  
+$username = "root";  
+$password = "";  
+$database = "usim_grades_insecure";  
+$port = 3306; (update this to your port number)  
 
 If your MySQL server uses a different port or password, update the configuration accordingly.
 
