@@ -4,9 +4,6 @@ session_start();
 require_once 'db_insecure.php';
 require_once 'academic_helper_insecure.php';
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    die("<h3>Access Denied. Lecturer administrative clearance required.</h3>");
-}
 
 $message = "";
 $target_matric = isset($_GET['matric_no']) ? $_GET['matric_no'] : '';
