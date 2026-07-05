@@ -3,7 +3,7 @@ $host = "127.0.0.1";
 $user = "root";
 $pass = "";
 $db   = "usim_grades_insecure";
-$port = 3307;
+$port = 3306;
 
 $conn = new mysqli($host, $user, $pass, $db, $port);
 

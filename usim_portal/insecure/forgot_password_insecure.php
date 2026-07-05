@@ -44,13 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php echo $message; ?>
 
     <form method="POST" action="">
-        <label>Enter Target Username / Matric ID:</label>
+        <label>Enter Username / Matric ID:</label>
         <input type="text" name="matric_no" placeholder="e.g., 1230500" required>
 
-        <label>Enter New Password Directly:</label>
+        <label>Enter New Password:</label>
         <input type="password" name="new_password" placeholder="e.g., AttackerControlled123" required>
 
-        <button type="submit">Override Target Account Password</button>
+        <button type="submit">Change Password</button>
     </form>
 </div>
 

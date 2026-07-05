@@ -2,36 +2,42 @@
 session_name('USIM_INSECURE_SESSION');
 session_start();
 require_once 'db_insecure.php';
+require_once 'academic_helper_insecure.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     die("<h3>Access Denied. Lecturer administrative clearance required.</h3>");
 }
 
 $message = "";
+$target_matric = isset($_GET['matric_no']) ? $_GET['matric_no'] : '';
 
-// Handle form submission (POST)
+ensure_insecure_academic_schema($conn);
+if ($target_matric !== '') {
+    seed_insecure_student_records($conn, $target_matric);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $matric_no = $_POST['matric_no'];
     $course_code = $_POST['course_code'];
     $new_grade = $_POST['new_grade'];
-    $new_gpa = $_POST['new_gpa'];
-    $new_cgpa = $_POST['new_cgpa'];
-    
-    $sql_metrics = "UPDATE academic_records SET gpa = '$new_gpa', cgpa = '$new_cgpa' WHERE matric_no = '$matric_no'";
-    $conn->query($sql_metrics);
-    
-    $sql_course = "UPDATE grades SET grade = '$new_grade' WHERE matric_no = '$matric_no' AND course_code = '$course_code'";
+
+    seed_insecure_student_records($conn, $matric_no);
+
+    $grade_point = insecure_grade_point_for_grade($new_grade);
+    $grade_point_sql = $grade_point === null ? 'NULL' : number_format($grade_point, 2, '.', '');
+
+    $sql_course = "UPDATE grades SET grade = '$new_grade', grade_point = $grade_point_sql, status = 'D' WHERE matric_no = '$matric_no' AND course_code = '$course_code'";
     $conn->query($sql_course);
+
+    $calculated_gpa = update_insecure_academic_metrics($conn, $matric_no);
+    $display_gpa = $calculated_gpa === null ? 'Pending' : number_format($calculated_gpa, 2);
 
     $message = "<div style='color: #d9534f; background: #fdf2f2; padding: 12px; margin-bottom: 15px; border: 1px solid #d9534f;'>
                     <strong>Administrative Override Successful:</strong><br>
-                    • Course [$course_code] changed to Grade [$new_grade]<br>
-                    • Final Metrics updated to GPA: $new_gpa | CGPA: $new_cgpa
+                    &bull; Course [$course_code] changed to Grade [$new_grade]<br>
+                    &bull; Final Metrics updated to GPA: $display_gpa | CGPA: $display_gpa
                 </div>";
 }
-
-// Grab ONLY the matric_no parameter passed from the dashboard link
-$target_matric = isset($_GET['matric_no']) ? $_GET['matric_no'] : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -67,7 +73,7 @@ $target_matric = isset($_GET['matric_no']) ? $_GET['matric_no'] : '';
 
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 20px;">
             <legend style="font-weight: bold; color: #2c3e50; padding: 0 10px;">Subject Grade Modification</legend>
-            
+
             <label>Select Course Code:</label>
             <select name="course_code">
                 <option value="SKE3012">SKE3012 - CYBER DEVELOPMENT</option>
@@ -83,18 +89,9 @@ $target_matric = isset($_GET['matric_no']) ? $_GET['matric_no'] : '';
             <select name="new_grade">
                 <option value="A+">A+</option><option value="A">A</option><option value="A-">A-</option>
                 <option value="B+">B+</option><option value="B">B</option><option value="B-">B-</option>
-                <option value="C+">C+</option><option value="C">C</option><option value="F">F</option>
+                <option value="C+">C+</option><option value="C">C</option><option value="C-">C-</option>
+                <option value="D+">D+</option><option value="D">D</option><option value="E">E</option><option value="F">F</option>
             </select>
-        </fieldset>
-
-        <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 20px;">
-            <legend style="font-weight: bold; color: #2c3e50; padding: 0 10px;">Final Score Metric Override</legend>
-            
-            <label>Override Semester GPA (PNGS):</label>
-            <input type="text" name="new_gpa" placeholder="e.g., 3.85" required>
-
-            <label>Override Cumulative CGPA (PNGK):</label>
-            <input type="text" name="new_cgpa" placeholder="e.g., 3.86" required>
         </fieldset>
 
         <button type="submit" class="btn-submit">Commit Insecure Overrides</button>

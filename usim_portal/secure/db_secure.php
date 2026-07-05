@@ -3,7 +3,7 @@ $host = "127.0.0.1";
 $user = "root";
 $pass = "";
 $db   = "usim_grades_secure";
-$port = 3307;
+$port = 3306;
 
 $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
 $options = [

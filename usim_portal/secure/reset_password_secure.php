@@ -65,7 +65,8 @@ if ($token_validated && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $message = "<div style='color: #155724; background: #d4edda; padding: 12px; font-weight:bold; margin-bottom: 15px; border-left: 5px solid #28a745;'>
                             Password updated successfully! You can now close this interface and access the login portal.
-                        </div>";
+                        </div>"
+                        . "<a href='login_secure.php' style='color: #527eb8; font-weight:bold;'>Proceed to Login</a>";
             $token_validated = false; // Collapse form display visibility context boundary mapping
         } catch (\PDOException $e) {
             $pdo->rollBack();
@@ -108,13 +109,13 @@ if ($token_validated && $_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         
         <form method="POST" action="">
-            <label>Specify New Cryptographic Password Array:</label>
+            <label>Enter new password:</label>
             <input type="password" name="new_password" placeholder="e.g. MySecurePass!123" required autocomplete="off">
 
-            <label>Verify Cryptographic Passphrase Alignment Structure:</label>
+            <label>Confirm new password:</label>
             <input type="password" name="confirm_password" placeholder="Re-enter password matching strings exactly" required autocomplete="off">
 
-            <button type="submit">Commit Verified Passphrase Update</button>
+            <button type="submit">Update Password</button>
         </form>
     <?php endif; ?>
 </div>

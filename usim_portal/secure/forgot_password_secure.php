@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         log_security_event($pdo, $matric_no, 'PASSWORD_RESET_REQ', 'Password reset validation lifetime token issued.', 'INFO');
 
-        $simulated_email_link = "http://localhost/usim_portal/secure/reset_password_secure.php?token=" . $token;
+        $simulated_email_link = "http://localhost/UniGrade/usim_portal/secure/reset_password_secure.php?token=" . $token;
     } else {
         $message = "<div style='color: green; margin-bottom: 15px;'>If the user account exists, an activation token link has been generated below.</div>";
     }

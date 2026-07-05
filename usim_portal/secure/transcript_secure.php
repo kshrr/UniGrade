@@ -2,6 +2,7 @@
 session_name('USIM_SECURE_SESSION');
 session_start();
 require_once 'db_secure.php';
+require_once 'academic_helper_secure.php';
 
 if (!isset($_SESSION['matric_no'])) {
     header("Location: login_secure.php");
@@ -15,6 +16,11 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && !empty($_GET['m
 } else {
     $secure_matric = $_SESSION['matric_no']; 
 }
+
+ensure_secure_academic_schema($pdo);
+seed_secure_student_records($pdo, $secure_matric);
+update_secure_academic_metrics($pdo, $secure_matric);
+ensure_secure_transcript_block($pdo, $secure_matric);
 
 // 2. FETCH STUDENT PROFILE DATA (UPDATED: Now includes profile_pic, email, and phone_no fields)
 try {
@@ -214,8 +220,8 @@ try {
                         echo "<td class='left-align'>" . htmlspecialchars($row['description'], ENT_QUOTES, 'UTF-8') . "</td>";
                         echo "<td>" . htmlspecialchars($row['course_component'], ENT_QUOTES, 'UTF-8') . "</td>";
                         echo "<td>" . htmlspecialchars($row['credit'], ENT_QUOTES, 'UTF-8') . "</td>";
-                        echo "<td style='font-weight: bold;'>" . htmlspecialchars($row['grade'], ENT_QUOTES, 'UTF-8') . "</td>";
-                        echo "<td>" . htmlspecialchars($row['grade_point'], ENT_QUOTES, 'UTF-8') . "</td>";
+                        echo "<td style='font-weight: bold;'>" . htmlspecialchars($row['grade'] === null ? 'Pending' : $row['grade'], ENT_QUOTES, 'UTF-8') . "</td>";
+                        echo "<td>" . htmlspecialchars($row['grade_point'] === null ? '-' : number_format((float) $row['grade_point'], 2), ENT_QUOTES, 'UTF-8') . "</td>";
                         echo "<td>" . htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8') . "</td>";
                         echo "</tr>";
                     }
@@ -233,14 +239,14 @@ try {
         <div class="summary-box">
             <div class="section-bar">SEMESTER</div>
             <table class="grid-table">
-                <tr><td class="left-align" style="font-weight: bold; color: #117864;">PNGS (GPA)</td><td style="font-weight: bold; color: #117864;"><?php echo htmlspecialchars($user_data['gpa'] ?? '0.00', ENT_QUOTES, 'UTF-8'); ?></td></tr>
+                <tr><td class="left-align" style="font-weight: bold; color: #117864;">PNGS (GPA)</td><td style="font-weight: bold; color: #117864;"><?php echo htmlspecialchars($user_data['gpa'] === null ? 'Pending' : number_format((float) $user_data['gpa'], 2), ENT_QUOTES, 'UTF-8'); ?></td></tr>
             </table>
         </div>
         
         <div class="summary-box">
             <div class="section-bar">CUMMULATIVE</div>
             <table class="grid-table">
-                <tr><td class="left-align" style="font-weight: bold; color: #117864;">PNGK (CGPA)</td><td style="font-weight: bold; color: #117864;"><?php echo htmlspecialchars($user_data['cgpa'] ?? '0.00', ENT_QUOTES, 'UTF-8'); ?></td></tr>
+                <tr><td class="left-align" style="font-weight: bold; color: #117864;">PNGK (CGPA)</td><td style="font-weight: bold; color: #117864;"><?php echo htmlspecialchars($user_data['cgpa'] === null ? 'Pending' : number_format((float) $user_data['cgpa'], 2), ENT_QUOTES, 'UTF-8'); ?></td></tr>
             </table>
         </div>
     </div>

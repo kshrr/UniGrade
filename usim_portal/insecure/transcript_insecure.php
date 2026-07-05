@@ -2,6 +2,7 @@
 session_name('USIM_INSECURE_SESSION');
 session_start();
 require_once 'db_insecure.php';
+require_once 'academic_helper_insecure.php';
 
 if (!isset($_SESSION['matric_no'])) {
     header("Location: login_insecure.php");
@@ -10,6 +11,9 @@ if (!isset($_SESSION['matric_no'])) {
 
 // IDOR VULNERABILITY: Blindly takes the matric number from the URL parameter without validation
 $matric_no = isset($_GET['matric_no']) ? $_GET['matric_no'] : $_SESSION['matric_no'];
+ensure_insecure_academic_schema($conn);
+seed_insecure_student_records($conn, $matric_no);
+update_insecure_academic_metrics($conn, $matric_no);
 
 // FETCH PROFILE DATA (UPDATED: Now query includes unescaped profile_pic, email, and phone_no fields)
 $sql = "SELECT users.name, users.role, users.profile_pic, users.email, users.phone_no, academic_records.programme, academic_records.gpa, academic_records.cgpa 
@@ -152,7 +156,8 @@ if (!$user_data) {
             // RAW SQL EXECUTION: VULNERABLE TO SQL INJECTION
             $grades_sql = "SELECT course_code, description, course_component, credit, grade, grade_point, status 
                            FROM grades 
-                           WHERE matric_no = '$matric_no'";
+                           WHERE matric_no = '$matric_no'
+                           ORDER BY course_code ASC";
             $grades_result = $conn->query($grades_sql);
 
             if ($grades_result && $grades_result->num_rows > 0) {
@@ -165,8 +170,8 @@ if (!$user_data) {
                     echo "<td class='left-align'>" . $row['description'] . "</td>";
                     echo "<td>" . $row['course_component'] . "</td>";
                     echo "<td>" . $row['credit'] . "</td>";
-                    echo "<td style='font-weight: bold;'>" . $row['grade'] . "</td>";
-                    echo "<td>" . $row['grade_point'] . "</td>";
+                    echo "<td style='font-weight: bold;'>" . ($row['grade'] === null ? 'Pending' : $row['grade']) . "</td>";
+                    echo "<td>" . ($row['grade_point'] === null ? '-' : number_format((float) $row['grade_point'], 2)) . "</td>";
                     echo "<td>" . $row['status'] . "</td>";
                     echo "</tr>";
                 }
@@ -183,7 +188,7 @@ if (!$user_data) {
             <table class="grid-table">
                 <tr><td class="left-align" style="width:50%;">UKS</td><td>18</td></tr>
                 <tr><td class="left-align">MGS</td><td>69.25</td></tr>
-                <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGS (GPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['gpa']; ?></td></tr>
+                <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGS (GPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['gpa'] === null ? 'Pending' : number_format((float) $user_data['gpa'], 2); ?></td></tr>
             </table>
         </div>
         
@@ -192,7 +197,7 @@ if (!$user_data) {
             <table class="grid-table">
                 <tr><td class="left-align" style="width:50%;">UKK</td><td>87</td></tr>
                 <tr><td class="left-align">MGK</td><td>336.25</td></tr>
-                <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGK (CGPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['cgpa']; ?></td></tr>
+                <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGK (CGPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['cgpa'] === null ? 'Pending' : number_format((float) $user_data['cgpa'], 2); ?></td></tr>
             </table>
         </div>
     </div>

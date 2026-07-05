@@ -3,10 +3,13 @@ session_name('USIM_SECURE_SESSION');
 session_start();
 require_once 'db_secure.php';
 require_once 'logging_helper.php';
+require_once 'academic_helper_secure.php';
 
 $message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    ensure_secure_academic_schema($pdo);
+
     // 1. Sanitize standard string inputs (Slide 28 & 29)
     $matric_no = filter_input(INPUT_POST, 'matric_no', FILTER_SANITIZE_SPECIAL_CHARS);
     $name      = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_SPECIAL_CHARS);
@@ -92,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "<div style='color: red;'>Registration Error: Identifier mapping conflict. User already exists.</div>";
             } else {
                 $hashed_password = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+                $pdo->beginTransaction();
 
                 $stmt_insert = $pdo->prepare("INSERT INTO users (matric_no, name, email, phone_no, password, role, profile_pic) 
                                              VALUES (:matric, :name, :email, :phone, :pass, :role, :pic)");
@@ -105,6 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'pic'      => $profile_pic_name
                 ]);
 
+                seed_secure_student_records($pdo, $matric_no);
+                ensure_secure_transcript_block($pdo, $matric_no);
+                $pdo->commit();
+
                 log_security_event($pdo, $matric_no, 'USER_REGISTRATION', 'Registered new student profile with verified contact endpoints.', 'INFO');
 
                 $message = "<div style='color: #155724; background: #d4edda; padding: 12px; font-weight:bold; border-left: 5px solid #28a745;'>
@@ -112,6 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>";
             }
         } catch (\PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $message = "<div style='color: red;'>Database failure: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</div>";
         }
     }

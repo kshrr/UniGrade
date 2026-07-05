@@ -1,9 +1,9 @@
 <?php
-// Set a unique cookie namespace for the secure environment (Mutual Exclusion)
-session_name('USIM_SECURE_SESSION'); 
+session_name('USIM_SECURE_SESSION');
 session_start();
 require_once 'db_secure.php';
 require_once 'logging_helper.php';
+require_once 'academic_helper_secure.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     die("<h3>Access Denied. Lecturer administrative clearance required.</h3>");
@@ -15,105 +15,76 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+ensure_secure_academic_schema($pdo);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
         log_security_event($pdo, $_SESSION['matric_no'], 'CSRF_ATTEMPT', 'Unauthorized transaction attempt on grade override form.', 'HIGH');
         die("<h3>Security Exception: Transaction token authenticity validation failure.</h3>");
     }
 
-    // =========================================================================
-    // ADVANCED I/O VALIDATION & SANITIZATION (Compliant with Slide 28 & 29)
-    // =========================================================================
-    
-    // 1. Sanitize Inputs (Strip illegal characters before processing)
-    $matric_no   = filter_input(INPUT_POST, 'matric_no', FILTER_SANITIZE_SPECIAL_CHARS);
+    $matric_no = filter_input(INPUT_POST, 'matric_no', FILTER_SANITIZE_SPECIAL_CHARS);
     $course_code = filter_input(INPUT_POST, 'course_code', FILTER_SANITIZE_SPECIAL_CHARS);
-    $new_grade   = filter_input(INPUT_POST, 'new_grade', FILTER_SANITIZE_SPECIAL_CHARS);
-    
-    // Sanitize Floats: Removes all characters except digits, plus, minus, and period/comma
-    $raw_gpa  = filter_input(INPUT_POST, 'new_gpa', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $raw_cgpa = filter_input(INPUT_POST, 'new_cgpa', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $new_grade = filter_input(INPUT_POST, 'new_grade', FILTER_SANITIZE_SPECIAL_CHARS);
 
     $validation_errors = [];
 
-    // 2. Data Length & Logical Bounds Validation
-    // Validate string lengths to prevent buffer overflow attacks
     if (strlen($matric_no) < 5 || strlen($matric_no) > 15) {
         $validation_errors[] = "Matric Number length violates system constraints.";
     }
 
-    // Validate that the sanitized GPA/CGPA are actual valid floating-point numbers
-    $new_gpa  = filter_var($raw_gpa, FILTER_VALIDATE_FLOAT);
-    $new_cgpa = filter_var($raw_cgpa, FILTER_VALIDATE_FLOAT);
-
-    // Business Logic Limits: GPA/CGPA must be between 0.00 and 4.00
-    if ($new_gpa === false || $new_gpa < 0.00 || $new_gpa > 4.00) {
-        $validation_errors[] = "Semester GPA must be a valid decimal between 0.00 and 4.00.";
-    }
-    if ($new_cgpa === false || $new_cgpa < 0.00 || $new_cgpa > 4.00) {
-        $validation_errors[] = "Cumulative CGPA must be a valid decimal between 0.00 and 4.00.";
+    if (!array_key_exists($new_grade, secure_grade_point_map())) {
+        $validation_errors[] = "Selected grade is outside the supported mapping table.";
     }
 
-    // Terminate transaction instantly if any validation fails
     if (!empty($validation_errors)) {
-        $error_string = implode("<br>• ", $validation_errors);
+        $error_string = implode("<br>&bull; ", $validation_errors);
         $message = "<div style='color: #721c24; background: #f8d7da; padding: 12px; border-left: 5px solid #dc3545; margin-bottom: 15px;'>
-                        <strong>Input Validation Failed:</strong><br>• $error_string
+                        <strong>Input Validation Failed:</strong><br>&bull; $error_string
                     </div>";
     } else {
-        // =========================================================================
-        // PROCEED WITH SECURE TRANSACTION
-        // =========================================================================
         try {
             $pdo->beginTransaction();
+            seed_secure_student_records($pdo, $matric_no);
 
-            // 1. Update overall student metrics
-            $stmt_metrics = $pdo->prepare("UPDATE academic_records SET gpa = :gpa, cgpa = :cgpa WHERE matric_no = :matric");
-            $stmt_metrics->execute(['gpa' => $new_gpa, 'cgpa' => $new_cgpa, 'matric' => $matric_no]);
-            
-            // 2. Update targeted course grade
-            $stmt_course = $pdo->prepare("UPDATE grades SET grade = :grade WHERE matric_no = :matric AND course_code = :course");
-            $stmt_course->execute(['grade' => $new_grade, 'matric' => $matric_no, 'course' => $course_code]);
-
-            // CERTCHAIN SMART CONTRACT MECHANISM SIMULATION
-            $ledger_fetch = $pdo->prepare("SELECT course_code, description, course_component, credit, grade, grade_point, status 
-                                           FROM grades WHERE matric_no = :matric ORDER BY course_code ASC");
-            $ledger_fetch->execute(['matric' => $matric_no]);
-            $updated_grades = $ledger_fetch->fetchAll(PDO::FETCH_ASSOC);
-
-            $new_block_hash = hash('sha256', json_encode($updated_grades));
-
-            $last_block_stmt = $pdo->query("SELECT block_hash FROM transcript_ledger ORDER BY id DESC LIMIT 1");
-            $last_block = $last_block_stmt->fetch();
-            $previous_hash = $last_block ? $last_block['block_hash'] : str_repeat('0', 64);
-
-            $insert_block = $pdo->prepare("INSERT INTO transcript_ledger (matric_no, block_hash, previous_hash) 
-                                           VALUES (:matric, :block_hash, :prev_hash)");
-            $insert_block->execute([
+            $grade_point = secure_grade_point_for_grade($new_grade);
+            $stmt_course = $pdo->prepare("UPDATE grades SET grade = :grade, grade_point = :grade_point, status = :status WHERE matric_no = :matric AND course_code = :course");
+            $stmt_course->execute([
+                'grade' => $new_grade,
+                'grade_point' => $grade_point,
+                'status' => 'D',
                 'matric' => $matric_no,
-                'block_hash' => $new_block_hash,
-                'prev_hash' => $previous_hash
+                'course' => $course_code
             ]);
 
+            $calculated_gpa = update_secure_academic_metrics($pdo, $matric_no);
+            mint_secure_transcript_block($pdo, $matric_no);
             $pdo->commit();
-            
-            log_security_event($pdo, $_SESSION['matric_no'], 'GRADE_OVERRIDE', "Altered $matric_no: Course $course_code to $new_grade, GPA to $new_gpa, CGPA to $new_cgpa. Cryptographic ledger block minted.", 'INFO');
+
+            $display_gpa = $calculated_gpa === null ? 'Pending' : number_format($calculated_gpa, 2);
+            log_security_event($pdo, $_SESSION['matric_no'], 'GRADE_OVERRIDE', "Altered $matric_no: Course $course_code to $new_grade, GPA to $display_gpa, CGPA to $display_gpa. Cryptographic ledger block minted.", 'INFO');
 
             $message = "<div style='color: #155724; background: #d4edda; padding: 12px; margin-bottom: 15px; border: 1px solid #c3e6cb;'>
                             <strong>Secure Administrative Override Committed:</strong><br>
-                            • Inputs Sanitized & Validated.<br>
-                            • Records updated cleanly via Parameterized Bounds.<br>
-                            • CertChain Block successfully minted and sealed onto ledger.<br>
-                            • Action documented in security logs.
+                            &bull; Inputs Sanitized &amp; Validated.<br>
+                            &bull; Records updated cleanly via Parameterized Bounds.<br>
+                            &bull; GPA and CGPA recalculated automatically to $display_gpa.<br>
+                            &bull; CertChain Block successfully minted and sealed onto ledger.<br>
+                            &bull; Action documented in security logs.
                         </div>";
         } catch (\PDOException $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $message = "<div style='color: #721c24; background: #f8d7da; padding: 12px;'>Database transaction error occurred. Changes reverted.</div>";
         }
     }
 }
 
 $target_matric = isset($_GET['matric_no']) ? trim($_GET['matric_no']) : '';
+if ($target_matric !== '') {
+    seed_secure_student_records($pdo, $target_matric);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -145,13 +116,13 @@ $target_matric = isset($_GET['matric_no']) ? trim($_GET['matric_no']) : '';
 
     <form method="POST" action="">
         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-        
+
         <label>Target Student Matric:</label>
         <input type="text" name="matric_no" value="<?php echo htmlspecialchars($target_matric, ENT_QUOTES, 'UTF-8'); ?>" readonly>
 
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 20px;">
             <legend style="font-weight: bold; color: #1a5276; padding: 0 10px;">Subject Grade Modification</legend>
-            
+
             <label>Select Course Code:</label>
             <select name="course_code">
                 <option value="SKE3012">SKE3012 - CYBER DEVELOPMENT</option>
@@ -167,18 +138,9 @@ $target_matric = isset($_GET['matric_no']) ? trim($_GET['matric_no']) : '';
             <select name="new_grade">
                 <option value="A+">A+</option><option value="A">A</option><option value="A-">A-</option>
                 <option value="B+">B+</option><option value="B">B</option><option value="B-">B-</option>
-                <option value="C+">C+</option><option value="C">C</option><option value="F">F</option>
+                <option value="C+">C+</option><option value="C">C</option><option value="C-">C-</option>
+                <option value="D+">D+</option><option value="D">D</option><option value="E">E</option><option value="F">F</option>
             </select>
-        </fieldset>
-
-        <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 20px;">
-            <legend style="font-weight: bold; color: #1a5276; padding: 0 10px;">Final Score Metric Override</legend>
-            
-            <label>Override Semester GPA (PNGS):</label>
-            <input type="text" name="new_gpa" placeholder="e.g., 3.85" required autocomplete="off">
-
-            <label>Override Cumulative CGPA (PNGK):</label>
-            <input type="text" name="new_cgpa" placeholder="e.g., 3.86" required autocomplete="off">
         </fieldset>
 
         <button type="submit" class="btn-submit">Commit Encapsulated Overrides</button>

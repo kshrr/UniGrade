@@ -1,6 +1,19 @@
 <?php
 session_name('USIM_INSECURE_SESSION');
 session_start();
+$message = "";
+
+if (isset($_SESSION['success'])) {
+    $message = "<div style='color: green;
+                background:#e2f0d9;
+                padding:10px;
+                border:1px solid #b4c6e7;
+                margin-bottom:15px;'>
+                " . $_SESSION['success'] . "
+                </div>";
+
+    unset($_SESSION['success']);
+}
 require_once 'db_insecure.php';
 
 $error = "";
@@ -160,12 +173,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <div class="login-wrapper">
         <div class="login-card">
-            
+            <?php echo $message; ?>
             <div class="version-tag">TEST ENVIRONMENT (INSECURE)</div>
 
             <div class="logo-container">
                 <img src="../assets/logo.png" alt="USIM Logo" style="height: 50px;" onerror="this.style.display='none'">
                 <h2>Sign in to your account</h2>
+                
             </div>
 
             <?php if($error): ?>

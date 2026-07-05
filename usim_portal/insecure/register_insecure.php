@@ -2,10 +2,13 @@
 session_name('USIM_INSECURE_SESSION'); 
 session_start();
 require_once 'db_insecure.php';
+require_once 'academic_helper_insecure.php';
 
 $message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    ensure_insecure_academic_schema($conn);
+
     // VULNERABILITY: Raw collection patterns with zero syntactic formatting verification
     $matric_no = $_POST['matric_no'];
     $name      = $_POST['name'];
@@ -33,12 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $raw_sql = "INSERT INTO users (matric_no, name, email, phone_no, password, role, profile_pic) 
                     VALUES ('$matric_no', '$name', '$email', '$phone_no', '$password', '$role', '$profile_pic_name')";
         
-        $pdo->exec($raw_sql);
+        $conn->query($raw_sql);
+        seed_insecure_student_records($conn, $matric_no);
+
+        $_SESSION['success'] = "Registration successful! Please log in.";
+        header("Location: login_insecure.php");
+        exit();
 
         $message = "<div style='color: green; background: #e2f0d9; padding: 10px; border: 1px solid #b4c6e7;'>
                         Student profile registered loosely via raw execution sequences.
                     </div>";
-    } catch (\PDOException $e) {
+    } catch (\Exception $e) {
         $message = "<div style='color: red;'>Database Error: " . $e->getMessage() . "</div>";
     }
 }
