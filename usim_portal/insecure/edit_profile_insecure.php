@@ -8,7 +8,9 @@ if (!isset($_SESSION['matric_no'])) {
     exit();
 }
 
-$matric_no = $_SESSION['matric_no'];
+$matric_no = isset($_GET['matric_no'])
+    ? $_GET['matric_no']
+    : $_SESSION['matric_no'];
 $message = "";
 
 $stmt_fetch = $conn->query("SELECT * FROM users WHERE matric_no = '$matric_no'");
@@ -75,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="edit-box">
     <h2 style="color: #e67e22;">Modify Account Profile (INSECURE)</h2>
-    <a href="transcript_insecure.php" style="color: #e67e22;">&larr; Back to Dashboard</a>
+    <a href="transcript_insecure.php?matric_no=<?php echo urlencode($matric_no); ?>" style="color: #e67e22;">&larr; Back to Dashboard</a>
     <hr style="border:0; border-top: 1px solid #eee; margin: 15px 0;">
 
     <?php echo $message; ?>

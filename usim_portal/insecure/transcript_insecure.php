@@ -86,7 +86,9 @@ if (!$user_data) {
         <div class="profile-media">
             <img src="uploads/<?php echo $user_data['profile_pic']; ?>" class="profile-avatar" alt="Insecure Avatar Display Element">
             
-            <a href="edit_profile_insecure.php" class="btn-edit-profile">⚙️ Edit Profile</a>
+            <a href="edit_profile_insecure.php?matric_no=<?php echo urlencode($matric_no); ?>" class="btn-edit-profile">
+                ⚙️ Edit Profile
+            </a>
         </div>
         
         <div style="flex-grow: 1;">
@@ -186,8 +188,6 @@ if (!$user_data) {
         <div class="summary-box">
             <div class="section-bar">SEMESTER</div>
             <table class="grid-table">
-                <tr><td class="left-align" style="width:50%;">UKS</td><td>18</td></tr>
-                <tr><td class="left-align">MGS</td><td>69.25</td></tr>
                 <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGS (GPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['gpa'] === null ? 'Pending' : number_format((float) $user_data['gpa'], 2); ?></td></tr>
             </table>
         </div>
@@ -195,8 +195,6 @@ if (!$user_data) {
         <div class="summary-box">
             <div class="section-bar">CUMMULATIVE</div>
             <table class="grid-table">
-                <tr><td class="left-align" style="width:50%;">UKK</td><td>87</td></tr>
-                <tr><td class="left-align">MGK</td><td>336.25</td></tr>
                 <tr><td class="left-align" style="font-weight: bold; color: #c0392b;">PNGK (CGPA)</td><td style="font-weight: bold; color: #c0392b;"><?php echo $user_data['cgpa'] === null ? 'Pending' : number_format((float) $user_data['cgpa'], 2); ?></td></tr>
             </table>
         </div>
